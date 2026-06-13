@@ -1,0 +1,621 @@
+{
+  "info": {
+    "_postman_id": "4eb0fee1-15a0-4adc-93ba-48e86abe8e13",
+    "name": "Reservations API - Colombia",
+    "description": "Colección de Postman para probar el sistema de reservas y cancelaciones de la API, incluyendo sus validaciones y reglas de negocio específicas de Colombia (zona horaria Bogotá y festivos).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Listar Todas las Reservas",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/reservations",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "reservations"
+          ]
+        },
+        "description": "Lista absolutamente todas las reservas registradas en el sistema (sin filtro de usuario)."
+      },
+      "response": []
+    },
+    {
+      "name": "Listar Reservas Activas",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/reservations?status=active",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "reservations"
+          ],
+          "query": [
+            {
+              "key": "status",
+              "value": "active"
+            }
+          ]
+        },
+        "description": "Lista únicamente las reservas con estado 'active' en el sistema."
+      },
+      "response": []
+    },
+    {
+      "name": "Listar Reservas Canceladas",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/reservations?status=cancelled",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "reservations"
+          ],
+          "query": [
+            {
+              "key": "status",
+              "value": "cancelled"
+            }
+          ]
+        },
+        "description": "Lista únicamente las reservas con estado 'cancelled' en el sistema."
+      },
+      "response": []
+    },
+    {
+      "name": "Listar Reservas de Usuario Específico",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/reservations?user_id=1",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "reservations"
+          ],
+          "query": [
+            {
+              "key": "user_id",
+              "value": "1",
+              "description": "ID del usuario para listar"
+            }
+          ]
+        },
+        "description": "Lista todas las reservas del usuario 1 (Juan Perez)."
+      },
+      "response": []
+    },
+    {
+      "name": "Listar Reservas con Rango de Fechas",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/reservations?user_id=1&start_date=2026-06-14&end_date=2026-06-20",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "reservations"
+          ],
+          "query": [
+            {
+              "key": "user_id",
+              "value": "1"
+            },
+            {
+              "key": "start_date",
+              "value": "2026-06-14"
+            },
+            {
+              "key": "end_date",
+              "value": "2026-06-20"
+            }
+          ]
+        },
+        "description": "Lista las reservas del usuario 1 dentro de un rango de fechas."
+      },
+      "response": []
+    },
+    {
+      "name": "Crear Reserva Exitosa (Formato Estándar)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"user_id\": 2,\n  \"service_id\": 1,\n  \"professional_id\": 1,\n  \"start_time\": \"2026-06-18 10:00:00\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/reservations",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "reservations"
+          ]
+        },
+        "description": "Crea una reserva utilizando el formato de fecha estándar Y-m-d H:i:s."
+      },
+      "response": []
+    },
+    {
+      "name": "Crear Reserva Exitosa (Formato ISO-8601)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"user_id\": 2,\n  \"service_id\": 1,\n  \"professional_id\": 1,\n  \"start_time\": \"2026-06-19T15:00:00.000Z\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/reservations",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "reservations"
+          ]
+        },
+        "description": "Crea una reserva enviando la fecha de inicio en formato ISO-8601 con zona horaria UTC (Z). El servidor la convertirá y validará en hora local de Bogotá."
+      },
+      "response": []
+    },
+    {
+      "name": "Crear Reserva Exitosa (Formato con Barras)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"user_id\": 2,\n  \"service_id\": 1,\n  \"professional_id\": 1,\n  \"start_time\": \"19/06/2026 11:00\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/reservations",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "reservations"
+          ]
+        },
+        "description": "Crea una reserva enviando la fecha de inicio en formato local con barras (d/m/Y H:i)."
+      },
+      "response": []
+    },
+    {
+      "name": "Crear Reserva Exitosa (Formato Unix Timestamp)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"user_id\": 2,\n  \"service_id\": 1,\n  \"professional_id\": 1,\n  \"start_time\": 1781881200\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/reservations",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "reservations"
+          ]
+        },
+        "description": "Crea una reserva enviando la fecha de inicio en formato Unix Timestamp numérico (1781881200 equivale al 19 de Junio de 2026 a las 15:00:00 UTC, o sea, 10:00:00 AM hora Bogotá)."
+      },
+      "response": []
+    },
+    {
+      "name": "Crear Reserva - Error: Cruce de Usuario",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"user_id\": 2,\n  \"service_id\": 1,\n  \"professional_id\": 2,\n  \"start_time\": \"2026-06-18 10:30:00\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/reservations",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "reservations"
+          ]
+        },
+        "description": "Intenta crear otra reserva para el usuario 2 a las 10:30 AM (con otro profesional). Como su cita anterior dura de 10:00 a 11:00 AM, fallará debido a que el usuario no puede tener citas cruzadas."
+      },
+      "response": []
+    },
+    {
+      "name": "Crear Reserva - Error: Fuera de Horario Laboral",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"user_id\": 2,\n  \"service_id\": 1,\n  \"professional_id\": 1,\n  \"start_time\": \"2026-06-18 20:00:00\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/reservations",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "reservations"
+          ]
+        },
+        "description": "Intenta crear una reserva a las 20:00 (8:00 PM), lo cual está fuera del horario de atención de Lunes a Sábado (07:00 a 19:00)."
+      },
+      "response": []
+    },
+    {
+      "name": "Crear Reserva - Error: Es Domingo",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"user_id\": 2,\n  \"service_id\": 1,\n  \"professional_id\": 1,\n  \"start_time\": \"2026-06-21 10:00:00\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/reservations",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "reservations"
+          ]
+        },
+        "description": "Intenta crear una reserva el domingo 21 de junio de 2026. Los domingos no está permitido reservar."
+      },
+      "response": []
+    },
+    {
+      "name": "Crear Reserva - Error: Es Festivo de Colombia",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"user_id\": 2,\n  \"service_id\": 1,\n  \"professional_id\": 1,\n  \"start_time\": \"2026-07-20 10:00:00\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/reservations",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "reservations"
+          ]
+        },
+        "description": "Intenta crear una reserva el 20 de Julio de 2026 (Día de la Independencia de Colombia), que está registrado como día festivo nacional en el sistema."
+      },
+      "response": []
+    },
+    {
+      "name": "Crear Reserva - Error: Menos de 2h de Anticipación",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"user_id\": 2,\n  \"service_id\": 1,\n  \"professional_id\": 1,\n  \"start_time\": \"2026-06-12 23:00:00\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/reservations",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "reservations"
+          ]
+        },
+        "description": "Intenta crear una reserva a una hora muy cercana a la hora actual simulada. Debe dar un error por requerir mínimo 2 horas de anticipación."
+      },
+      "response": []
+    },
+    {
+      "name": "Crear Reserva - Error: Cruce de Profesional",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"user_id\": 3,\n  \"service_id\": 1,\n  \"professional_id\": 1,\n  \"start_time\": \"2026-06-18 10:30:00\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/reservations",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "reservations"
+          ]
+        },
+        "description": "Intenta crear una reserva para el profesional 1 a las 10:30 AM (con el usuario 3). Como el profesional 1 ya tiene la reserva del usuario 2 de 10:00 a 11:00 AM, fallará por cruce de horario del profesional."
+      },
+      "response": []
+    },
+    {
+      "name": "Crear Reserva - Error: Más de 3 Reservas Activas Futuras",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"user_id\": 1,\n  \"service_id\": 1,\n  \"professional_id\": 1,\n  \"start_time\": \"2026-06-19 10:00:00\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/reservations",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "reservations"
+          ]
+        },
+        "description": "El usuario 1 ya tiene 3 reservas activas futuras en la base de datos inicial. Intentar crear una cuarta para él fallará."
+      },
+      "response": []
+    },
+    {
+      "name": "Cancelar Reserva 1 (Estándar - Con anticipación, 50% Reembolso)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"cancelled_by\": 1\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/reservations/1/cancel",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "reservations",
+            "1",
+            "cancel"
+          ]
+        },
+        "description": "Cancela la reserva 1 (Usuario estándar Juan Perez). Como se hace con anticipación (> 24h), calcula un reembolso del 50% (25000.00 COP)."
+      },
+      "response": []
+    },
+    {
+      "name": "Cancelar Reserva 2 (Premium - Con anticipación, 100% Reembolso)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"cancelled_by\": 2\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/reservations/2/cancel",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "reservations",
+            "2",
+            "cancel"
+          ]
+        },
+        "description": "Cancela la reserva 2 (Usuario premium Maria Rodriguez). Al hacerse con anticipación (> 24h), calcula un reembolso del 100% (100000.00 COP)."
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000",
+      "type": "string"
+    }
+  ]
+}

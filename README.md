@@ -106,7 +106,7 @@ vendor/bin/phpunit tests/Feature/ReservationTest.php
 ## 📬 Pruebas en Postman (Colección de Endpoints)
 
 Se incluye una colección pre-configurada de Postman para probar todos los flujos e interacciones en:
-`data/reservations_api_postman_collection.json`
+`data/reservations_api_collection.json`
 
 ### Endpoints Disponibles:
 - **Listar Todas las Reservas:** `GET /api/reservations` (Listado global sin filtro obligatorio de usuario).

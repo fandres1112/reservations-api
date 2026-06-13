@@ -69,6 +69,7 @@ Para garantizar que la API sea robusta, segura y apta para producción, se imple
 - **Manejador Global de Excepciones:** Configuración en `bootstrap/app.php` para capturar errores de enrutamiento (404), recursos no encontrados (`ModelNotFoundException` mapeado a 404), y errores de validación (422) forzando siempre respuestas estructuradas en formato JSON en el grupo de rutas `/api/*` sin redirecciones ni stack traces de HTML expuestos.
 - **Rate Limiting (Límite de Peticiones):** Configuración del middleware `throttle:api` con una política de 60 peticiones por minuto por dirección IP, previniendo abusos en los endpoints del sistema.
 - **Logging Semántico de Operaciones:** Registro de eventos críticos en `ReservationService` mediante el facade `Log` de Laravel, lo que permite auditar en producción la creación, cancelación y violaciones a las reglas de negocio de las citas con metadatos contextuales (IDs, montos de reembolso, motivos de rechazo).
+- **Conversión a API Pura (Headless):** Se eliminó por completo todo el boilerplate de frontend predeterminado de Laravel (vistas Blade, configuración de Vite, assets CSS/JS, package.json y dependencias NPM) y se modificó la ruta web raíz `/` para retornar el estado de salud del sistema en formato JSON.
 
 ---
 

@@ -8,6 +8,7 @@ use App\Models\Professional;
 use App\Models\Reservation;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 class ReservationService
@@ -28,11 +29,14 @@ class ReservationService
      */
     public function create(array $data): Reservation
     {
+        Log::info("Attempting to create reservation", ['data' => $data]);
+
         // 1. Parsear fecha de inicio en la zona horaria America/Bogota para evaluar reglas de negocio
         $startTimeLocal = $this->parseDateTime($data['start_time']);
 
         // 2. Horarios de operación: Lunes a Sábado, ni domingos ni festivos
         if ($startTimeLocal->isSunday()) {
+            Log::warning("Reservation validation failed: Sunday scheduling attempt", ['data' => $data]);
             throw ValidationException::withMessages([
                 'start_time' => ['No se aceptan reservas los domingos.']
             ]);
@@ -42,6 +46,7 @@ class ReservationService
         $holidays = config('holidays', []);
         $dateStr = $startTimeLocal->format('Y-m-d');
         if (in_array($dateStr, $holidays)) {
+            Log::warning("Reservation validation failed: Holiday scheduling attempt", ['data' => $data, 'holiday' => $dateStr]);
             throw ValidationException::withMessages([
                 'start_time' => ["No se aceptan reservas en festivos de Colombia ({$dateStr})."]
             ]);
@@ -53,84 +58,128 @@ class ReservationService
         $hoursAdvance = $secondsBefore / 3600.0;
 
         if ($hoursAdvance < 2.0) {
+            Log::warning("Reservation validation failed: Insufficient advance time", ['data' => $data, 'hours_advance' => $hoursAdvance]);
             throw ValidationException::withMessages([
                 'start_time' => ['Una reserva debe crearse con al menos 2 horas de anticipación.']
             ]);
         }
 
         // Ejecutar toda la lógica de base de datos dentro de una transacción para evitar condiciones de carrera (Race Conditions)
-        return DB::transaction(function () use ($data, $startTimeLocal) {
-            // Bloqueamos las filas del usuario y profesional para evitar lecturas sucias concurrentes
-            $user = User::where('id', $data['user_id'])->lockForUpdate()->firstOrFail();
-            $service = Service::findOrFail($data['service_id']);
-            $professional = Professional::where('id', $data['professional_id'])->lockForUpdate()->firstOrFail();
+        try {
+            return DB::transaction(function () use ($data, $startTimeLocal) {
+                // Bloqueamos las filas del usuario y profesional para evitar lecturas sucias concurrentes
+                $user = User::where('id', $data['user_id'])->lockForUpdate()->firstOrFail();
+                $service = Service::findOrFail($data['service_id']);
+                $professional = Professional::where('id', $data['professional_id'])->lockForUpdate()->firstOrFail();
 
-            $endTimeLocal = (clone $startTimeLocal)->addMinutes($service->duration_minutes);
+                $endTimeLocal = (clone $startTimeLocal)->addMinutes($service->duration_minutes);
 
-            // 5. Franja horaria de operación (07:00 a 19:00) - Se verifica inicio y fin en Bogotá
-            $dayStart = (clone $startTimeLocal)->setTime(7, 0, 0);
-            $dayEnd = (clone $startTimeLocal)->setTime(19, 0, 0);
+                // 5. Franja horaria de operación (07:00 a 19:00) - Se verifica inicio y fin en Bogotá
+                $dayStart = (clone $startTimeLocal)->setTime(7, 0, 0);
+                $dayEnd = (clone $startTimeLocal)->setTime(19, 0, 0);
 
-            if ($startTimeLocal->lessThan($dayStart) || $endTimeLocal->greaterThan($dayEnd)) {
-                throw ValidationException::withMessages([
-                    'start_time' => ['El servicio debe iniciar y finalizar dentro de la jornada de 07:00 a 19:00 (hora local de Bogotá).']
+                if ($startTimeLocal->lessThan($dayStart) || $endTimeLocal->greaterThan($dayEnd)) {
+                    Log::warning("Reservation validation failed: Outside operating hours", [
+                        'data' => $data,
+                        'start_local' => $startTimeLocal->toDateTimeString(),
+                        'end_local' => $endTimeLocal->toDateTimeString()
+                    ]);
+                    throw ValidationException::withMessages([
+                        'start_time' => ['El servicio debe iniciar y finalizar dentro de la jornada de 07:00 a 19:00 (hora local de Bogotá).']
+                    ]);
+                }
+
+                // Para persistencia y consultas, convertimos las fechas locales a UTC (estándar de base de datos)
+                $startTimeUtc = (clone $startTimeLocal)->setTimezone('UTC');
+                $endTimeUtc = (clone $endTimeLocal)->setTimezone('UTC');
+
+                // 6. Límite de reservas por usuario: máx 3 activas futuras (comparado en UTC)
+                $activeFutureCount = Reservation::where('user_id', $user->id)
+                    ->where('status', 'active')
+                    ->where('start_time', '>', Carbon::now('UTC'))
+                    ->lockForUpdate()
+                    ->count();
+
+                if ($activeFutureCount >= 3) {
+                    Log::warning("Reservation validation failed: Active future count limit exceeded", [
+                        'user_id' => $user->id,
+                        'active_count' => $activeFutureCount
+                    ]);
+                    throw ValidationException::withMessages([
+                        'user_id' => ['El usuario no puede tener más de 3 reservas activas futuras al mismo tiempo.']
+                    ]);
+                }
+
+                // 7. Cruce de Horario del Profesional (comparado en UTC con pessimistic locking)
+                $cruceProfesional = Reservation::where('professional_id', $professional->id)
+                    ->where('status', 'active')
+                    ->where('start_time', '<', $endTimeUtc)
+                    ->where('end_time', '>', $startTimeUtc)
+                    ->lockForUpdate()
+                    ->first();
+
+                if ($cruceProfesional) {
+                    Log::warning("Reservation validation failed: Professional scheduling conflict", [
+                        'professional_id' => $professional->id,
+                        'conflict_reservation_id' => $cruceProfesional->id
+                    ]);
+                    throw ValidationException::withMessages([
+                        'start_time' => ["El profesional ya tiene otra reserva activa que se cruza con este horario (Reserva ID: {$cruceProfesional->id})."]
+                    ]);
+                }
+
+                // 8. Cruce de Horario del Usuario (un usuario no puede tener dos citas que se crucen en el mismo horario)
+                $cruceUsuario = Reservation::where('user_id', $user->id)
+                    ->where('status', 'active')
+                    ->where('start_time', '<', $endTimeUtc)
+                    ->where('end_time', '>', $startTimeUtc)
+                    ->lockForUpdate()
+                    ->first();
+
+                if ($cruceUsuario) {
+                    Log::warning("Reservation validation failed: User scheduling conflict", [
+                        'user_id' => $user->id,
+                        'conflict_reservation_id' => $cruceUsuario->id
+                    ]);
+                    throw ValidationException::withMessages([
+                        'start_time' => ["El usuario ya tiene otra reserva activa que se cruza con este horario (Reserva ID: {$cruceUsuario->id})."]
+                    ]);
+                }
+
+                $reservation = Reservation::create([
+                    'user_id' => $user->id,
+                    'service_id' => $service->id,
+                    'professional_id' => $professional->id,
+                    'start_time' => $startTimeUtc,
+                    'end_time' => $endTimeUtc,
+                    'status' => 'active',
                 ]);
-            }
 
-            // Para persistencia y consultas, convertimos las fechas locales a UTC (estándar de base de datos)
-            $startTimeUtc = (clone $startTimeLocal)->setTimezone('UTC');
-            $endTimeUtc = (clone $endTimeLocal)->setTimezone('UTC');
-
-            // 6. Límite de reservas por usuario: máx 3 activas futuras (comparado en UTC)
-            $activeFutureCount = Reservation::where('user_id', $user->id)
-                ->where('status', 'active')
-                ->where('start_time', '>', Carbon::now('UTC'))
-                ->lockForUpdate()
-                ->count();
-
-            if ($activeFutureCount >= 3) {
-                throw ValidationException::withMessages([
-                    'user_id' => ['El usuario no puede tener más de 3 reservas activas futuras al mismo tiempo.']
+                Log::info("Reservation created successfully", [
+                    'reservation_id' => $reservation->id,
+                    'user_id' => $user->id,
+                    'service_id' => $service->id,
+                    'professional_id' => $professional->id,
+                    'start_time_local' => $startTimeLocal->toDateTimeString()
                 ]);
-            }
 
-            // 7. Cruce de Horario del Profesional (comparado en UTC con pessimistic locking)
-            $cruceProfesional = Reservation::where('professional_id', $professional->id)
-                ->where('status', 'active')
-                ->where('start_time', '<', $endTimeUtc)
-                ->where('end_time', '>', $startTimeUtc)
-                ->lockForUpdate()
-                ->first();
-
-            if ($cruceProfesional) {
-                throw ValidationException::withMessages([
-                    'start_time' => ["El profesional ya tiene otra reserva activa que se cruza con este horario (Reserva ID: {$cruceProfesional->id})."]
-                ]);
-            }
-
-            // 8. Cruce de Horario del Usuario (un usuario no puede tener dos citas que se crucen en el mismo horario)
-            $cruceUsuario = Reservation::where('user_id', $user->id)
-                ->where('status', 'active')
-                ->where('start_time', '<', $endTimeUtc)
-                ->where('end_time', '>', $startTimeUtc)
-                ->lockForUpdate()
-                ->first();
-
-            if ($cruceUsuario) {
-                throw ValidationException::withMessages([
-                    'start_time' => ["El usuario ya tiene otra reserva activa que se cruza con este horario (Reserva ID: {$cruceUsuario->id})."]
-                ]);
-            }
-
-            return Reservation::create([
-                'user_id' => $user->id,
-                'service_id' => $service->id,
-                'professional_id' => $professional->id,
-                'start_time' => $startTimeUtc,
-                'end_time' => $endTimeUtc,
-                'status' => 'active',
+                return $reservation;
+            });
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            Log::error("Reservation creation failed: Associated model not found", [
+                'data' => $data,
+                'exception' => $e->getMessage()
             ]);
-        });
+            throw $e;
+        } catch (\Exception $e) {
+            if (!($e instanceof ValidationException)) {
+                Log::error("Reservation creation failed: Unexpected error during transaction", [
+                    'data' => $data,
+                    'exception' => $e->getMessage()
+                ]);
+            }
+            throw $e;
+        }
     }
 
     /**
@@ -143,32 +192,57 @@ class ReservationService
      */
     public function cancel(int $id, ?int $cancelledBy = null): Reservation
     {
-        return DB::transaction(function () use ($id, $cancelledBy) {
-            $reservation = Reservation::where('id', $id)
-                ->lockForUpdate()
-                ->firstOrFail();
+        Log::info("Attempting to cancel reservation", ['reservation_id' => $id, 'cancelled_by' => $cancelledBy]);
 
-            if ($reservation->status === 'cancelled') {
-                throw ValidationException::withMessages([
-                    'reservation' => ['La reserva ya se encuentra cancelada.']
+        try {
+            return DB::transaction(function () use ($id, $cancelledBy) {
+                $reservation = Reservation::where('id', $id)
+                    ->lockForUpdate()
+                    ->firstOrFail();
+
+                if ($reservation->status === 'cancelled') {
+                    Log::warning("Reservation cancellation failed: Already cancelled", ['reservation_id' => $id]);
+                    throw ValidationException::withMessages([
+                        'reservation' => ['La reserva ya se encuentra cancelada.']
+                    ]);
+                }
+
+                $cancelledAt = Carbon::now('America/Bogota');
+
+                // Calcular reembolso
+                $refundAmount = $this->refundCalculator->calculate($reservation, $cancelledAt);
+
+                // Guardamos la fecha de cancelación en UTC
+                $reservation->update([
+                    'status' => 'cancelled',
+                    'cancelled_at' => $cancelledAt->setTimezone('UTC'),
+                    'cancelled_by' => $cancelledBy,
+                    'refund_amount' => $refundAmount,
+                ]);
+
+                Log::info("Reservation cancelled successfully", [
+                    'reservation_id' => $reservation->id,
+                    'refund_amount' => $refundAmount,
+                    'cancelled_by' => $cancelledBy
+                ]);
+
+                return $reservation;
+            });
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            Log::error("Reservation cancellation failed: Reservation not found", [
+                'reservation_id' => $id,
+                'exception' => $e->getMessage()
+            ]);
+            throw $e;
+        } catch (\Exception $e) {
+            if (!($e instanceof ValidationException)) {
+                Log::error("Reservation cancellation failed: Unexpected error during transaction", [
+                    'reservation_id' => $id,
+                    'exception' => $e->getMessage()
                 ]);
             }
-
-            $cancelledAt = Carbon::now('America/Bogota');
-
-            // Calcular reembolso
-            $refundAmount = $this->refundCalculator->calculate($reservation, $cancelledAt);
-
-            // Guardamos la fecha de cancelación en UTC
-            $reservation->update([
-                'status' => 'cancelled',
-                'cancelled_at' => $cancelledAt->setTimezone('UTC'),
-                'cancelled_by' => $cancelledBy,
-                'refund_amount' => $refundAmount,
-            ]);
-
-            return $reservation;
-        });
+            throw $e;
+        }
     }
 
     /**

@@ -483,4 +483,54 @@ class ReservationTest extends TestCase
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.status', 'cancelled');
     }
+
+    public function test_non_existent_route_returns_structured_404(): void
+    {
+        $response = $this->getJson('/api/non-existent-route');
+
+        $response->assertStatus(404)
+            ->assertJson([
+                'success' => false,
+                'message' => 'La ruta solicitada no existe.'
+            ]);
+    }
+
+    public function test_non_existent_model_returns_structured_404(): void
+    {
+        // Intento de cancelación de reserva inexistente
+        $response = $this->postJson('/api/reservations/999999/cancel');
+
+        $response->assertStatus(404)
+            ->assertJson([
+                'success' => false,
+                'message' => 'El recurso solicitado no fue encontrado.'
+            ]);
+    }
+
+    public function test_validation_errors_use_structured_envelope(): void
+    {
+        // Enviar petición vacía a creación de reserva
+        $response = $this->postJson('/api/reservations', []);
+
+        $response->assertStatus(422)
+            ->assertJson([
+                'success' => false,
+                'message' => 'Los datos proporcionados no son válidos.'
+            ])
+            ->assertJsonStructure(['errors']);
+    }
+
+    public function test_rate_limiting_is_applied(): void
+    {
+        $this->mock(\Illuminate\Cache\RateLimiter::class, function ($mock) {
+            $mock->shouldReceive('limiter')->with('api')->andReturn(function () {
+                return \Illuminate\Cache\RateLimiting\Limit::perMinute(60);
+            });
+            $mock->shouldReceive('tooManyAttempts')->andReturn(true);
+            $mock->shouldReceive('availableIn')->andReturn(60);
+        });
+
+        $response = $this->getJson('/api/reservations');
+        $response->assertStatus(429);
+    }
 }

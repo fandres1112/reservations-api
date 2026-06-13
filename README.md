@@ -63,6 +63,13 @@ Para evitar condiciones de carrera y asegurar la consistencia del negocio:
 - **Cruce de Usuario:** Un usuario no puede tener dos citas que se crucen en el mismo horario.
 - **ID de Cita Conflictiva:** Si se detecta un cruce de horario, el sistema recupera la cita que causa el conflicto y devuelve su ID directamente en el mensaje de error de validación `422`.
 
+### 🚀 Mejoras de Robustez y Producción:
+Para garantizar que la API sea robusta, segura y apta para producción, se implementaron las siguientes características:
+- **Estandarización de Respuestas JSON (`ApiResponses`):** Centralización de las respuestas mediante un Trait que encapsula la estructura estándar (`success`, `message`, `data`, `errors`), asegurando que todas las peticiones exitosas o fallidas devuelvan el mismo envoltorio de datos.
+- **Manejador Global de Excepciones:** Configuración en `bootstrap/app.php` para capturar errores de enrutamiento (404), recursos no encontrados (`ModelNotFoundException` mapeado a 404), y errores de validación (422) forzando siempre respuestas estructuradas en formato JSON en el grupo de rutas `/api/*` sin redirecciones ni stack traces de HTML expuestos.
+- **Rate Limiting (Límite de Peticiones):** Configuración del middleware `throttle:api` con una política de 60 peticiones por minuto por dirección IP, previniendo abusos en los endpoints del sistema.
+- **Logging Semántico de Operaciones:** Registro de eventos críticos en `ReservationService` mediante el facade `Log` de Laravel, lo que permite auditar en producción la creación, cancelación y violaciones a las reglas de negocio de las citas con metadatos contextuales (IDs, montos de reembolso, motivos de rechazo).
+
 ---
 
 ## 📋 Supuestos Asumidos

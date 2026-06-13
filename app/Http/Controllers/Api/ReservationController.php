@@ -7,11 +7,14 @@ use App\Http\Requests\CreateReservationRequest;
 use App\Http\Requests\ListReservationsRequest;
 use App\Http\Resources\ReservationResource;
 use App\Services\ReservationService;
+use App\Traits\ApiResponses;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class ReservationController extends Controller
 {
+    use ApiResponses;
+
     protected ReservationService $reservationService;
 
     public function __construct(ReservationService $reservationService)
@@ -33,9 +36,9 @@ class ReservationController extends Controller
             $request->input('end_date')
         );
 
-        return response()->json([
-            'data' => ReservationResource::collection($reservations)->resolve()
-        ]);
+        return $this->successResponse(
+            ReservationResource::collection($reservations)->resolve()
+        );
     }
 
     /**
@@ -45,10 +48,11 @@ class ReservationController extends Controller
     {
         $reservation = $this->reservationService->create($request->validated());
 
-        return response()->json([
-            'message' => 'Reserva creada exitosamente.',
-            'data' => (new ReservationResource($reservation))->resolve()
-        ], 201);
+        return $this->successResponse(
+            (new ReservationResource($reservation))->resolve(),
+            'Reserva creada exitosamente.',
+            201
+        );
     }
 
     /**
@@ -60,9 +64,9 @@ class ReservationController extends Controller
 
         $reservation = $this->reservationService->cancel($id, $cancelledBy);
 
-        return response()->json([
-            'message' => 'Reserva cancelada exitosamente.',
-            'data' => (new ReservationResource($reservation))->resolve()
-        ]);
+        return $this->successResponse(
+            (new ReservationResource($reservation))->resolve(),
+            'Reserva cancelada exitosamente.'
+        );
     }
 }

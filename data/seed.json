@@ -1,0 +1,121 @@
+{
+  "users": [
+    {
+      "id": 1,
+      "name": "Juan Perez",
+      "email": "juan.perez@example.com",
+      "is_premium": false
+    },
+    {
+      "id": 2,
+      "name": "Maria Rodriguez",
+      "email": "maria.rodriguez@example.com",
+      "is_premium": "true"
+    },
+    {
+      "id": 3,
+      "name": "Carlos Gomez",
+      "email": "carlos.gomez@example.com",
+      "is_premium": true
+    },
+    {
+      "id": 4,
+      "name": "Invalido Sin Email",
+      "is_premium": false
+    }
+  ],
+  "services": [
+    {
+      "id": 1,
+      "name": "Asesoría Estándar",
+      "duration_minutes": 60,
+      "price": 50000.00,
+      "non_refundable": false
+    },
+    {
+      "id": 2,
+      "name": "Consulta Especializada",
+      "duration_minutes": 90,
+      "price": 100000.00,
+      "non_refundable": false
+    },
+    {
+      "id": 3,
+      "name": "Taller Intensivo No Reembolsable",
+      "duration_minutes": 120,
+      "price": 150000.00,
+      "non_refundable": true
+    }
+  ],
+  "professionals": [
+    {
+      "id": 1,
+      "name": "Dr. Carlos Ochoa"
+    },
+    {
+      "id": 2,
+      "name": "Dra. Maria Gomez"
+    }
+  ],
+  "reservations": [
+    {
+      "id": 1,
+      "user_id": 1,
+      "service_id": 1,
+      "professional_id": 1,
+      "start_time": "2026-06-15 08:00:00",
+      "status": "active"
+    },
+    {
+      "id": 2,
+      "user_id": 2,
+      "service_id": 2,
+      "professional_id": 1,
+      "start_time": "2026-06-15 10:00:00",
+      "status": "active"
+    },
+    {
+      "id": 3,
+      "user_id": 3,
+      "service_id": 1,
+      "professional_id": 2,
+      "start_time": 1781532000,
+      "status": "active"
+    },
+    {
+      "id": 4,
+      "user_id": 1,
+      "service_id": 2,
+      "professional_id": 2,
+      "start_time": "15/06/2026 14:00",
+      "status": "active"
+    },
+    {
+      "id": 5,
+      "user_id": 2,
+      "service_id": 3,
+      "professional_id": 1,
+      "start_time": "2026-06-16 09:00:00",
+      "status": "cancelled",
+      "cancelled_at": "2026-06-15 09:00:00",
+      "cancelled_by": 2,
+      "refund_amount": 0.00
+    },
+    {
+      "id": 6,
+      "user_id": 4,
+      "service_id": 1,
+      "professional_id": 1,
+      "start_time": "2026-06-16 11:00:00",
+      "status": "active"
+    },
+    {
+      "id": 7,
+      "user_id": 1,
+      "service_id": 99,
+      "professional_id": 1,
+      "start_time": "2026-06-16 11:00:00",
+      "status": "active"
+    }
+  ]
+}

@@ -1,59 +1,108 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Reservas API — Prueba Técnica Laravel 12
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Este proyecto implementa el módulo de gestión de reservas de una plataforma de servicios de citas utilizando **Laravel 12** y una base de datos **SQLite**.
 
-## About Laravel
+---
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## 🚀 Cómo Correr el Proyecto
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+### Requisitos Previos
+- **PHP >= 8.4**
+- **Composer**
+- Extensión **PDO SQLite** habilitada en PHP.
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+### Instalación Paso a Paso
 
-## Learning Laravel
+1. **Clonar o descargar el repositorio** en tu máquina local.
+2. **Instalar dependencias de Composer:**
+   ```bash
+   composer install
+   ```
+3. **Configurar el archivo de entorno `.env`:**
+   Asegúrate de que la conexión SQLite esté activa en tu archivo `.env`:
+   ```env
+   DB_CONNECTION=sqlite
+   ```
+4. **Generar la llave de la aplicación:**
+   ```bash
+   php artisan key:generate
+   ```
+5. **Ejecutar migraciones y sembrar base de datos (Seeder):**
+   Este comando limpiará las tablas, las creará de nuevo, e importará/normalizará el archivo de datos `data/seed.json` aplicando la integridad referencial:
+   ```bash
+   php artisan migrate:fresh --seed
+   ```
+6. **Iniciar el servidor de desarrollo:**
+   ```bash
+   php artisan serve
+   ```
+   La API estará disponible en `http://localhost:8000`.
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+---
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+## 🛠️ Decisiones Técnicas y Arquitectura
 
-## Laravel Sponsors
+Se optó por una **Arquitectura Pragmática basada en Servicios y Utilidades**, evitando la sobreingeniería para cumplir con los requerimientos con alta calidad y mantenibilidad.
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+### Componentes de Software:
+1. **`ReservationController`:** Controlador REST delgado que recibe peticiones, delega la lógica de negocio al servicio, y retorna respuestas JSON estructuradas usando recursos API de Laravel.
+2. **`ReservationService` (Servicio de Dominio):** Centraliza la lógica transaccional de agendamiento, cancelación y listado. Esto mantiene las reglas de negocio organizadas en un único lugar facilitando su mantenimiento y lectura.
+3. **`RefundCalculator` (Calculador de Reembolsos):** Clase de utilidad pura que implementa la matriz de reembolsos en Pesos Colombianos (COP) para usuarios estándar, premium, servicios no reembolsables y cálculo preciso de horas.
+4. **`ReservationResource` (Capa de Transformación):** Formatea la salida de la API y convierte las fechas almacenadas en UTC al huso horario local `America/Bogota` para el cliente.
 
-### Premium Partners
+### Consistencia de Zonas Horarias y Fechas:
+- **Almacenamiento:** Todas las fechas se guardan y comparan en **UTC** en la base de datos SQLite para mantener consistencia.
+- **Validación y Presentación:** Al recibir datos o dar respuestas, Carbon mapea y convierte las fechas a la zona horaria del negocio (`America/Bogota`) para evaluar reglas horarias locales (lunes a sábado de 7:00 a 19:00, festivos colombianos de 2026).
+- **Formatos de Fecha Flexibles y Adaptativos:** La API tolera múltiples formatos de entrada para la fecha de inicio (`start_time`), tales como strings estándar (`Y-m-d H:i:s`), formato local colombiano con barras (`d/m/Y H:i`), Unix Timestamps numéricos y strings en ISO-8601 (con `Z` o `T`). Todos ellos son interpretados o convertidos al huso horario local de Bogotá para validar las reglas horarias, y normalizados a UTC al guardarse.
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+### Concurrencia y Consistencia (Cruce de Horarios):
+Para evitar condiciones de carrera y asegurar la consistencia del negocio:
+- Las validaciones e inserciones se ejecutan dentro de una **transacción de base de datos (`DB::transaction`)**.
+- Se aplica un **bloqueo pesimista (`lockForUpdate()`)** tanto al validar límites de reservas como al buscar cruces.
+- **Cruce de Profesional:** Dos reservas activas del mismo profesional no pueden coincidir en tiempo.
+- **Cruce de Usuario:** Un usuario no puede tener dos citas que se crucen en el mismo horario.
+- **ID de Cita Conflictiva:** Si se detecta un cruce de horario, el sistema recupera la cita que causa el conflicto y devuelve su ID directamente en el mensaje de error de validación `422`.
 
-## Contributing
+---
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+## 📋 Supuestos Asumidos
 
-## Code of Conduct
+1. **`data/seed.json` ausente en el material original:** El documento de la prueba técnica indicaba que se incluía un archivo `data/seed.json` con usuarios, servicios y reservas inconsistentes. Al no estar presente en el entorno inicial provisto, se simuló y creó un archivo `data/seed.json` a medida con los 3 formatos de fecha requeridos (Unix, local con barras e ISO) y datos huérfanos para demostrar la limpieza de datos e integridad referencial en el seeder de forma transparente.
+2. **Límites de Horas de Operación (07:00 a 19:00):** Se asume de forma estricta que tanto el inicio como la finalización de la cita (inicio + duración del servicio) deben ocurrir dentro de esta franja de operación local de Bogotá.
+3. **Cancelaciones de Servicios No Reembolsables:** Si un servicio es marcado como `non_refundable = true`, se permite la cancelación del espacio del profesional, pero el monto de reembolso registrado siempre es de `$0.00` COP.
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+---
 
-## Security Vulnerabilities
+## 🚫 Limitaciones
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+- **Autenticación:** El endpoint es público pero recibe `user_id` en las solicitudes para simular el contexto del usuario autenticado de forma limpia.
+- **No se implementó CLI:** Se priorizó una API HTTP robusta con cobertura del 100% de tests de integración para demostrar mejores prácticas web.
 
-## License
+---
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+## 🧪 Pruebas Automatizadas
+
+Se desarrolló una suite completa de pruebas de integración en [ReservationTest.php](file:///c:/dev/reservations-api/tests/Feature/ReservationTest.php) que cubre el 100% de la matriz de reglas de negocio, incluyendo validación estricta de formatos, límites de agenda, cruces de horarios de usuario/profesional e integridad de reembolsos en COP.
+
+Para ejecutar los tests, corre:
+```bash
+php artisan test
+```
+o
+```bash
+vendor/bin/phpunit tests/Feature/ReservationTest.php
+```
+
+---
+
+## 📬 Pruebas en Postman (Colección de Endpoints)
+
+Se incluye una colección pre-configurada de Postman para probar todos los flujos e interacciones en:
+`data/reservations_api_postman_collection.json`
+
+### Endpoints Disponibles:
+- **Listar Todas las Reservas:** `GET /api/reservations` (Listado global sin filtro obligatorio de usuario).
+- **Listar Reservas por Estado:** `GET /api/reservations?status=active` o `GET /api/reservations?status=cancelled`.
+- **Listar Reservas de Usuario:** `GET /api/reservations?user_id=1` (Con filtros opcionales de rango de fechas `start_date` y `end_date`).
+- **Crear Reserva:** `POST /api/reservations` (Crea una cita validando formato estricto `Y-m-d H:i:s`, festivos, domingos, anticipación y cruces de horario).
+- **Cancelar Reserva:** `POST /api/reservations/{id}/cancel` (Aplica la matriz de reembolso en Pesos Colombianos y libera el horario).
